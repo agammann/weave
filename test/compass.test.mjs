@@ -1,0 +1,16 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {validateCompass,previewCompass} from '../compass.mjs';
+const settings={id:'settings',initialized:true,permissions:{webmcpEnabled:false,readEnabled:true,writeEnabled:true,allowedTypes:{note:true,task:true,bookmark:true,snippet:true}},activeSpaceId:'s'};
+const space={id:'s',name:'Synthetic',description:'',createdAt:'2026-01-01',updatedAt:'2026-01-01'};
+const item={id:'i',spaceId:'s',type:'note',title:'Original',body:'',tags:[],createdAt:'2026-01-01',updatedAt:'2026-01-01',source:'synthetic',createdBy:'human'};
+const base={version:1,exportedAt:'2026-01-01',spaces:[space],items:[item],packs:[],relations:[],settings};
+const clone=()=>structuredClone(base);
+const opt={attestCommonBase:true};
+test('rejects absent ancestry attestation',()=>assert.throws(()=>previewCompass(base,base,base),/attestation/));
+test('real export shape accepts independent edits and preserves all fields',()=>{const l=clone(),r=clone();l.items[0].title='Left';r.spaces[0].description='Right';const p=previewCompass(base,l,r,opt);assert.equal(p.result.items[0].title,'Left');assert.equal(p.result.spaces[0].description,'Right');assert.deepEqual(validateCompass(JSON.parse(JSON.stringify(p.result))),[]);});
+test('conflicting edits require choice and record it',()=>{const l=clone(),r=clone();l.items[0].title='L';r.items[0].title='R';assert.deepEqual(previewCompass(base,l,r,opt).unresolved,['items/i']);const p=previewCompass(base,l,r,{...opt,decisions:{'items/i':'right'}});assert.equal(p.result.items[0].title,'R');assert.equal(p.log[0].choice,'right');});
+test('rejects resulting broken links',()=>{const l=clone(),r=clone();l.items=[];r.relations=[{id:'r',sourceId:'i',targetId:'j',relation:'related',createdAt:'t',createdBy:'human'}];r.items.push({...item,id:'j'});const p=previewCompass(base,l,r,opt);assert.match(p.errors.join(),/reference/);assert.equal(p.result,null);});
+test('rejects unsupported versions and duplicate IDs',()=>{const d=clone();d.version=2;assert.match(validateCompass(d).join(),/unsupported/);d.version=1;d.items.push({...item});assert.match(validateCompass(d).join(),/duplicate/);});
+test('rejects unknown fields and bad settings references',()=>{const d=clone();d.newField=true;assert.match(validateCompass(d).join(),/shape/);delete d.newField;d.settings.activePackId='missing';assert.match(validateCompass(d).join(),/reference/);});
+test('deletion vs edit is explicit',()=>{const l=clone(),r=clone();l.items=[];r.items[0].body='new';assert.equal(previewCompass(base,l,r,opt).conflicts[0].kind,'update-vs-delete');});
