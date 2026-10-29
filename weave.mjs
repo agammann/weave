@@ -39,14 +39,14 @@ export function preview(base, left, right, decisions = {}) {
       const kind = b && (!l || !r) ? 'update-vs-delete' : !b ? 'concurrent-add' : (l.order !== r.order && isDeepStrictEqual({...l, order: 0}, {...r, order: 0}) ? 'reorder' : 'concurrent-update');
       const conflict = {id, kind, base: b ?? null, left: l ?? null, right: r ?? null};
       conflicts.push(conflict);
-      const choice = decisions[id];
+      const choice = Object.hasOwn(decisions, id) ? decisions[id] : undefined;
       if (choice !== undefined && !['base','left','right'].includes(choice)) throw new Error(`Invalid decision for ${id}`);
       if (choice === undefined) continue;
       value = {base:b,left:l,right:r}[choice]; log.push({id, kind, choice});
     }
     if (value !== undefined) records.push(structuredClone(value));
   }
-  const unresolved = conflicts.filter(c => decisions[c.id] === undefined);
+  const unresolved = conflicts.filter(c => !Object.hasOwn(decisions, c.id) || decisions[c.id] === undefined);
   const result = {schema: base.schema, revision: 'merged-preview', baseRevision: base.revision, records};
   const errors = unresolved.length ? [] : validate(result);
   return {conflicts, unresolved: unresolved.map(c => c.id), errors, log, result: unresolved.length || errors.length ? null : result};
