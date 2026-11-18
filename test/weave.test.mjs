@@ -16,6 +16,13 @@ test('broken references rejected after merge',()=>{const b=doc('b',[rec('p'),rec
 test('cycles rejected',()=>assert.match(validate(doc('x',[rec('a','a','b'),rec('b','b','a')])).join(),/cycle/));
 test('both synthetic schemas round trip',()=>{for(const schema of ['notes-v1','tasks-v1']){const b=doc('b',[rec('a')],undefined,schema);const p=preview(b,doc('l',b.records,'b',schema),doc('r',b.records,'b',schema));assert.deepEqual(validate(JSON.parse(JSON.stringify(p.result))),[]);}});
 test('invalid choice rejected',()=>assert.throws(()=>preview(base,branch([rec('a','L'),rec('b')]),branch([rec('a','R'),rec('b')]),{a:'other'}),/Invalid decision/));
+test('a decision for a resolved or unknown conflict cannot produce a result', () => {
+  const left = branch([rec('a', 'L'), rec('b')]);
+  const right = branch(base.records);
+  assert.throws(() => preview(base, left, right, {a: 'right'}), /does not match a current conflict: a/);
+  assert.throws(() => preview(base, left, right, []), /Decisions must be a JSON object/);
+  assert.equal(preview(base, left, right).result.records[0].title, 'L');
+});
 for (const id of ['constructor','toString','__proto__']) {
   test(`conflicting ${id} requires an own decision`,()=>{
     const b=doc('b',[rec(id)]),l=branch([rec(id,'L')]),r=branch([rec(id,'R')]);

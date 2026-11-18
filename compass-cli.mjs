@@ -1,12 +1,12 @@
-import {readFile,writeFile} from 'node:fs/promises';
+import {writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {previewCompass} from './compass.mjs';
+import {readJson} from './merge-inputs.mjs';
 const args=process.argv.slice(2);
 if ((args.length!==4 && args.length!==6) || args[0]!=='--attest-common-base') {console.error('Usage: node compass-cli.mjs --attest-common-base BASE LEFT RIGHT [DECISIONS OUTPUT]');process.exit(2);}
 try {
-  const read=async p=>JSON.parse(await readFile(p,'utf8'));
-  const [base,left,right]=await Promise.all(args.slice(1,4).map(read));
-  const decisions=args.length===6?await read(args[4]):{};
+  const [base,left,right]=await Promise.all(args.slice(1,4).map(readJson));
+  const decisions=args.length===6?await readJson(args[4]):{};
   const result=previewCompass(base,left,right,{attestCommonBase:true,decisions});
   console.log(JSON.stringify({...result,result:result.result?'Ready to write':null},null,2));
   if(args.length===6 && result.result){

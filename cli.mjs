@@ -1,12 +1,12 @@
-import {readFile, writeFile} from 'node:fs/promises';
+import {writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {preview} from './weave.mjs';
+import {readJson} from './merge-inputs.mjs';
 const args = process.argv.slice(2);
 if (args.length !== 3 && args.length !== 5) { console.error('Usage: node cli.mjs BASE LEFT RIGHT [DECISIONS OUTPUT]'); process.exit(2); }
 try {
-  const read = async p => JSON.parse(await readFile(p, 'utf8'));
-  const [base,left,right] = await Promise.all(args.slice(0,3).map(read));
-  const decisions = args.length === 5 ? await read(args[3]) : {};
+  const [base,left,right] = await Promise.all(args.slice(0,3).map(readJson));
+  const decisions = args.length === 5 ? await readJson(args[3]) : {};
   const p = preview(base,left,right,decisions);
   console.log(JSON.stringify(p, null, 2));
   if (args.length === 5 && p.result) {

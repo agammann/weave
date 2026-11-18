@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
+import { checkCurrentDecisions, validateDecisions } from './merge-inputs.mjs';
 
 // Research format, deliberately not presented as a real app export.
 export function validate(doc) {
@@ -27,6 +28,7 @@ export function preview(base, left, right, decisions = {}) {
     const errors = validate(doc); if (errors.length) throw new Error(`${name}: ${errors.join('; ')}`);
   }
   if (left.schema !== base.schema || right.schema !== base.schema || left.baseRevision !== base.revision || right.baseRevision !== base.revision) throw new Error('Schemas or explicit common ancestry do not match');
+  validateDecisions(decisions);
   const maps = [base, left, right].map(d => new Map(d.records.map(r => [r.id, r])));
   const ids = [...new Set(maps.flatMap(m => [...m.keys()]))].sort();
   const records = [], conflicts = [], log = [];
@@ -40,12 +42,12 @@ export function preview(base, left, right, decisions = {}) {
       const conflict = {id, kind, base: b ?? null, left: l ?? null, right: r ?? null};
       conflicts.push(conflict);
       const choice = Object.hasOwn(decisions, id) ? decisions[id] : undefined;
-      if (choice !== undefined && !['base','left','right'].includes(choice)) throw new Error(`Invalid decision for ${id}`);
       if (choice === undefined) continue;
       value = {base:b,left:l,right:r}[choice]; log.push({id, kind, choice});
     }
     if (value !== undefined) records.push(structuredClone(value));
   }
+  checkCurrentDecisions(decisions, conflicts.map(conflict => conflict.id));
   const unresolved = conflicts.filter(c => !Object.hasOwn(decisions, c.id) || decisions[c.id] === undefined);
   const result = {schema: base.schema, revision: 'merged-preview', baseRevision: base.revision, records};
   const errors = unresolved.length ? [] : validate(result);

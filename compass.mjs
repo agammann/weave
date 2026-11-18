@@ -1,4 +1,5 @@
 import {isDeepStrictEqual} from 'node:util';
+import {checkCurrentDecisions, validateDecisions} from './merge-inputs.mjs';
 
 const kinds = ['spaces','items','packs','relations'];
 const types = ['note','task','bookmark','snippet'];
@@ -33,6 +34,7 @@ export function validateCompass(d) {
 export function previewCompass(base,left,right,{attestCommonBase=false,decisions={}}={}) {
   if (attestCommonBase !== true) throw new Error('Explicit common-base attestation required; Compass v1 has no ancestry metadata');
   for(const [name,doc] of Object.entries({base,left,right})) {const e=validateCompass(doc); if(e.length) throw new Error(`${name}: ${e.join('; ')}`);}
+  validateDecisions(decisions);
   const conflicts=[], unresolved=[], log=[], output={version:1,exportedAt:base.exportedAt};
   const select=(key,b,l,r)=>{
     if(isDeepStrictEqual(l,r)) return l;
@@ -42,7 +44,6 @@ export function previewCompass(base,left,right,{attestCommonBase=false,decisions
     conflicts.push({key,kind,base:b??null,left:l??null,right:r??null});
     const choice=Object.hasOwn(decisions,key)?decisions[key]:undefined;
     if(choice===undefined){unresolved.push(key);return undefined;}
-    if(!['base','left','right'].includes(choice)) throw new Error(`Invalid choice: ${key}`);
     log.push({key,kind,choice}); return {base:b,left:l,right:r}[choice];
   };
   for(const k of kinds){
@@ -53,6 +54,7 @@ export function previewCompass(base,left,right,{attestCommonBase=false,decisions
     }
   }
   output.settings=select('settings',base.settings,left.settings,right.settings);
+  checkCurrentDecisions(decisions, conflicts.map(conflict => conflict.key));
   const errors=unresolved.length?[]:validateCompass(output);
   return {conflicts,unresolved,errors,log,result:unresolved.length||errors.length?null:output};
 }
